@@ -7,12 +7,14 @@ import re
 from tqdm import tqdm
 import os
 import pandas as pd
+import numpy as np
 
 '''
 by Cai Ytsma
-last updated 26 October 2022
+last updated 8 December 2022
 
 Automatically adds new LIBS RDR data from SuperCam PDS
+and converts to PyHAT format
 
 Data documentation:
 https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/document/SuperCam_Bundle_SIS.pdf
@@ -33,6 +35,10 @@ meta_path = f'{folder}\\LIBS_RDR_metadata.csv'
 meta_comps_path = f'{folder}\\LIBS_RDR_metadata_w_pred_comps.csv'
 comps_path =  f'{folder}\\{compname}'
 
+# prep
+spectra_path = f'{folder}\\LIBS_RDR_mean_spectra.csv'
+spectra = pd.read_csv(spectra_path)
+
 def get_sol_no(sol_page):
     return int(sol_page.split('_')[1])
 
@@ -42,7 +48,7 @@ def no_to_sol(sol_no):
     return sol
 
 # first, update comps file
-comps = pd.read_csv(f'{comps_url}\\{filename}')
+comps = pd.read_csv(f'{comps_url}\\{compname}')
 comps.to_csv(comps_path, index=False)
 
 # drop header
@@ -80,14 +86,18 @@ def make_meta(meta_dict):
     updated_meta.to_csv(meta_path, index=False)
     return updated_meta
 
-if len(sols_to_add) > 0:
-    cont = True
-else:
-    cont = False
+def make_spectra(spectra_to_add):
+    global spectra, spectra_path
+    updated_spectra = spectra.merge(spectra_to_add, on='wave')
+    updated_spectra.to_csv(spectra_path, index=False)
+    return updated_spectra
+
+cont = True if len(sols_to_add) > 0 else False
     
 while cont:
     try:
         meta_dict = dict()
+        spectra_dict = dict()
         count=0
         scount=0
         for sol in tqdm(sols_to_add, desc='new sols'):
@@ -102,6 +112,8 @@ while cont:
 
                 # continue if LIBS RDR type
                 if re.match('^cl.$', prod_type):
+                    
+                    pkey = filename[:-5]
 
                     # download file
                     data = requests.get(f'{parent_url}{sol}/{filename}').content
@@ -118,9 +130,9 @@ while cont:
                     laser.to_csv(f'{laser_folder}\\{filename[:-5]}.csv', index=False)
 
                     # spectral data
-                    spectra = pd.DataFrame(data[6].data)  
-                    for col in spectra.columns:
-                        spectra[col] = spectra[col].astype('float64')
+                    s = pd.DataFrame(data[6].data)  
+                    for col in s.columns:
+                        s[col] = s[col].astype('float64')
 
                     stats = pd.DataFrame(data[7].data)  
                     for col in stats.columns:
@@ -133,12 +145,20 @@ while cont:
                     saturation = pd.DataFrame(data[9].data)
 
                     # merge
-                    big_df = wave.join(stats).join(spectra).join(saturation)
-                    big_df.to_csv(f'{spectra_folder}\\{filename[:-5]}.csv', index=False)
+                    big_df = wave.join(stats).join(s).join(saturation)
+                    big_df.to_csv(f'{spectra_folder}\\{pkey}.csv', index=False)
+                    
+                                            
+                    # get mean spectrum to add to spectra file
+                    if count==0:
+                        spectra_to_add = big_df[['Wavelength','Mean']].copy()
+                        spectra_to_add.columns = ['wave',pkey]
+                    else:
+                        spectra_to_add[pkey] = list(big_df['Mean'].values)
 
                     # add metadata
-                    info = filename.split('_')
-                    meta_dict[filename[:-5]] = {   
+                    info = pkey.split('_')
+                    meta_dict[pkey] = {   
                         'sol':info[1],
                         'sclock':'_'.join(info[2:4]),
                         'seq_n':info[5],
@@ -156,13 +176,15 @@ while cont:
                     
             scount+=1
 
-        # add new meta
+        # export complete dfs
         meta = make_meta(meta_dict)
+        spectra = make_spectra(spectra_to_add)
         print(f'{count} spectra from {scount} sols added')
         cont=False
 
     except:
         meta = make_meta(meta_dict)
+        spectra = make_spectra(spectra_to_add)
         print(f'{count} spectra from {scount} sols added')
         
         # prep for next iteration
@@ -170,7 +192,34 @@ while cont:
         if len(sols_to_add) == 0:
             cont = False
 
+print('Spectra data up to date')
+
 # finally, add predicted compositions
 meta_w_comps = meta.merge(comps)
 meta_w_comps.to_csv(meta_comps_path, index=False)
-print('Data up to date')
+
+#-------------------------#
+# CONVERT TO PYHAT FORMAT #
+#-------------------------#
+print('Converting to PyHAT format...')
+
+# prepare spectra
+spectra = spectra.T.reset_index()
+spectra.columns = list(spectra.iloc[0])
+spectra.drop(index=0, inplace=True)
+spectra.rename(columns={'wave':'pkey'}, inplace=True)
+if np.nan in spectra.columns:
+    spectra.drop(columns=np.nan, inplace=True)
+    
+# merge with metadata
+big_df = meta_w_comps.merge(spectra)
+
+# add column labels needed for PyHAT
+col_list = list(big_df.columns)
+new_cols = ['meta']*8 + ['comp']*19 + ['wvl']*7462
+col_df = pd.DataFrame([new_cols, col_list], columns=col_list)
+big_df = pd.concat([col_df, big_df])
+
+# export
+big_df.to_csv(f'{folder}\\LIBS_RDR_data_PyHAT.csv', index=False, header=False)
+print('Finished')
