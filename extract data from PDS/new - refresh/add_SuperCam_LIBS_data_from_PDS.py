@@ -27,9 +27,13 @@ date = datetime.datetime.now().strftime("%d%m%y")
 parent_url = 'https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/data_calibrated_spectra/'
 
 folder = input('Enter root folder path for data to be saved: ')
+
+# make folders
 laser_folder = f'{folder}\\LIBS RDR laser data'
 spectra_folder = f'{folder}\\LIBS RDR spectra'
 fits_folder = f'{folder}\\LIBS RDR fits files'
+for f in [laser_folder, spectra_folder, fits_folder]:
+    os.makedirs(f, exist_ok=True)
 
 meta_path = f'{folder}\\LIBS_RDR_metadata_{date}.csv'
 meta_comps_path = f'{folder}\\LIBS_RDR_metadata_w_pred_comps_{date}.csv'
