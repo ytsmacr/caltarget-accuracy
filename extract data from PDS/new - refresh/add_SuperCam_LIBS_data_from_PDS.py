@@ -35,8 +35,6 @@ meta_path = f'{folder}\\LIBS_RDR_metadata_{date}.csv'
 meta_comps_path = f'{folder}\\LIBS_RDR_metadata_w_pred_comps_{date}.csv'
 spectra_path = f'{folder}\\LIBS_RDR_mean_spectra_{date}.csv'
 
-****spectra = pd.read_csv(spectra_path)
-
 # first, update comps file
 comps = pd.read_csv('https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/data_derived_spectra/supercam_libs_moc.csv')
 comps_path =  f'{folder}\\supercam_libs_moc_{date}.csv'
