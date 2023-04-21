@@ -8,12 +8,13 @@ from tqdm import tqdm
 import os
 import pandas as pd
 import numpy as np
+import datetime
 
 '''
-by Cai Ytsma
-last updated 8 December 2022
+by Cai Ytsma (cai@caiconsulting.co.uk)
+last updated 21 April 2023
 
-Automatically adds new LIBS RDR data from SuperCam PDS
+Automatically extracts LIBS RDR data from SuperCam PDS
 and converts to PyHAT format
 
 Data documentation:
@@ -21,32 +22,24 @@ https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/document/
 '''
 
 # prep 
+date = datetime.datetime.now().strftime("%d%m%y")
+
 parent_url = 'https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/data_calibrated_spectra/'
-comps_url = 'https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/data_derived_spectra/'
-compname = 'supercam_libs_moc.csv'
 
 folder = input('Enter root folder path for data to be saved: ')
 laser_folder = f'{folder}\\LIBS RDR laser data'
 spectra_folder = f'{folder}\\LIBS RDR spectra'
 fits_folder = f'{folder}\\LIBS RDR fits files'
-meta_path = f'{folder}\\LIBS_RDR_metadata.csv'
-meta_comps_path = f'{folder}\\LIBS_RDR_metadata_w_pred_comps.csv'
-comps_path =  f'{folder}\\{compname}'
 
-# prep
-spectra_path = f'{folder}\\LIBS_RDR_mean_spectra.csv'
-spectra = pd.read_csv(spectra_path)
+meta_path = f'{folder}\\LIBS_RDR_metadata_{date}.csv'
+meta_comps_path = f'{folder}\\LIBS_RDR_metadata_w_pred_comps_{date}.csv'
+spectra_path = f'{folder}\\LIBS_RDR_mean_spectra_{date}.csv'
 
-def get_sol_no(sol_page):
-    return int(sol_page.split('_')[1])
-
-def no_to_sol(sol_no):
-    n_zeros = 5 - len(str(sol_no))
-    sol = 'sol_'+(n_zeros*'0')+str(sol_no)
-    return sol
+****spectra = pd.read_csv(spectra_path)
 
 # first, update comps file
-comps = pd.read_csv(f'{comps_url}\\{compname}')
+comps = pd.read_csv('https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/data_derived_spectra/supercam_libs_moc.csv')
+comps_path =  f'{folder}\\supercam_libs_moc_{date}.csv'
 comps.to_csv(comps_path, index=False)
 
 # drop header
@@ -60,18 +53,44 @@ comps['pkey'] = [x+'01' for x in comps.pkey]
 
 # get page contents
 page = requests.get(parent_url).text
+
 # get sol pages
+def get_sol_no(sol_page):
+    return int(sol_page.split('_')[1])
+
+def no_to_sol(sol_no):
+    n_zeros = 5 - len(str(sol_no))
+    sol = 'sol_'+(n_zeros*'0')+str(sol_no)
+    return sol
+
 sol_pages = list(set(re.findall(r'sol_\d{5}', page)))
+sol_pages.sort()
 sol_page_nos = [get_sol_no(i) for i in sol_pages]
 
 # find which data needs adding
 def get_sols_to_add():
-    global meta_path
-    meta = pd.read_csv(meta_path)
-    most_recent_sol_no = max(meta['sol'])
-    most_recent_sol = no_to_sol(most_recent_sol_no)
-    sol_to_add = [i for i in sol_pages if i > most_recent_sol]
-    sol_to_add.sort()
+    global meta_path, sol_page_nos
+    
+    # if already exists because the run broke
+    if os.path.exists(meta_path):
+        meta = pd.read_csv(meta_path)
+        most_recent_sol_no = max(meta['sol'])
+        most_recent_sol = no_to_sol(most_recent_sol_no)
+        sol_to_add = [i for i in sol_pages if i > most_recent_sol]
+        sol_to_add.sort()
+        
+    # to initiate
+    else:
+        meta = pd.DataFrame(columns=['pkey',
+                                     'sol',
+                                     'sclock',
+                                     'seq_n',
+                                     'target',
+                                     'location_n',
+                                     'producer',
+                                     'version'])
+        sol_to_add = sol_pages
+        
     return sol_to_add, meta
 
 sols_to_add, meta = get_sols_to_add()
@@ -85,8 +104,17 @@ def make_meta(meta_dict):
     return updated_meta
 
 def make_spectra(spectra_to_add):
-    global spectra, spectra_path
-    updated_spectra = spectra.merge(spectra_to_add, on='wave')
+    global spectra_path
+    
+    # if already exists because the run broke
+    if os.path.exists(spectra_path):
+        global spectra
+        updated_spectra = spectra.merge(spectra_to_add, on='wave')
+    
+    # to initiate
+    else:
+        updated_spectra = spectra_to_add.copy()
+    
     updated_spectra.to_csv(spectra_path, index=False)
     return updated_spectra
 
@@ -189,7 +217,7 @@ while cont:
         if len(sols_to_add) == 0:
             cont = False
 
-print('Spectra data up to date')
+print('Spectra data extracted')
 
 # finally, add predicted compositions
 meta_w_comps = meta.merge(comps)
@@ -218,5 +246,5 @@ col_df = pd.DataFrame([new_cols, col_list], columns=col_list)
 big_df = pd.concat([col_df, big_df])
 
 # export
-big_df.to_csv(f'{folder}\\LIBS_RDR_data_PyHAT.csv', index=False, header=False)
+big_df.to_csv(f'{folder}\\LIBS_RDR_data_PyHAT_{date}.csv', index=False, header=False)
 print('Finished')

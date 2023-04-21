@@ -6,7 +6,7 @@ import pandas as pd
 import datetime
 
 '''
-by Cai Ytsma
+by Cai Ytsma (cai@caiconsulting.co.uk)
 last updated 20 April 2023
 
 Automatically extract LIBS CCS data from ChemCam PDS
@@ -51,7 +51,6 @@ def get_sols_to_add():
         most_recent_sol_no = max(meta['sol'])
         sol_to_add = [no_to_sol(i) for i in sol_page_nos if i > most_recent_sol_no]
         sol_to_add.sort()
-        return sol_to_add, meta
     
     # to initiate
     else:
