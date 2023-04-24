@@ -2,7 +2,7 @@
 ## by Cai Ytsma (cai@caiconsulting.co.uk)
 
 ### ** New in this version ** 
-#### Programs bulk extract all records and export dated files rather than appending newly released data, due to potential adjustments to previous files.
+Programs bulk extract all records and export dated files rather than appending newly released data, due to potential adjustments to previous files.
 ### *************************
 
 Install Python packages from `requirements.txt` before running programs. 
