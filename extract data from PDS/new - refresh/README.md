@@ -24,7 +24,8 @@ Clean, calibrated spectral data are extracted from https://pds-geosciences.wustl
 
 Predicted major element abundances (MOC) extracted from `supercam_libs_moc.csv` here: https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/data_derived_spectra/
 
-Program outputs three folders for 1) individual .fits files, as well as 2) laser data and 3) spectra extracted from the .fits files. `These outputs can be adjusted for individual need - data information is documented here: https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/document/M2020_SuperCam_EDR_RDR_SIS.pdf`
+Program outputs three folders for 1) individual .fits files, as well as 2) laser data and 3) spectra extracted from the .fits files. 
+> These outputs can be adjusted for individual need - data information is documented here: https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/document/M2020_SuperCam_EDR_RDR_SIS.pdf
 
 #### ChemCam
 Clean, calibrated spectral data are extracted from https://pds-geosciences.wustl.edu/m2020/urn-nasa-pds-mars2020_supercam/data_derived_spectra/
